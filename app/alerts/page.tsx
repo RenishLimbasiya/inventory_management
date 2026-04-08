@@ -12,7 +12,7 @@ interface RestockAlertProps {
   currentQuantity: number;
   minStockLevel: number;
   price: number;
-  supplier: string;
+  supplier?: string;
 }
 
 const AlertItem = ({

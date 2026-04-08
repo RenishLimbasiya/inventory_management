@@ -30,7 +30,7 @@ export function LowStockAlert({
   const lowStockItems = products.filter(
     (p) =>
       p.quantity > 0 &&
-      p.quantity <= Math.max(p.minStockLevel, lowStockThresholdOverride),
+      p.quantity <= (lowStockThresholdOverride ?? p.minStockLevel),
   );
 
   if (criticalItems.length === 0 && lowStockItems.length === 0) {

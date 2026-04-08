@@ -18,6 +18,7 @@ export async function GET(
   try {
     initializeDatabase();
     const { id } = await params;
+    console.log("Hello " + id);
     const product = getProductById(id);
 
     if (!product) {

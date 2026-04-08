@@ -70,8 +70,8 @@ export default function MovementsPage() {
   // Calculate stats
   const stats = {
     totalMovements: movements.length,
-    inbound: movements.filter((m) => m.type === "inbound").length,
-    outbound: movements.filter((m) => m.type === "outbound").length,
+    restock: movements.filter((m) => m.type === "restock").length,
+    sale: movements.filter((m) => m.type === "sale").length,
     adjustment: movements.filter((m) => m.type === "adjustment").length,
     return: movements.filter((m) => m.type === "return").length,
   };
@@ -171,19 +171,19 @@ export default function MovementsPage() {
 
         <div className="glass rounded-lg p-4 border border-green-500/20 bg-green-500/5 text-center">
           <p className="text-xs text-green-600 dark:text-green-400 uppercase tracking-wider">
-            Inbound
+            Restock
           </p>
           <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
-            {stats.inbound}
+            {stats.restock}
           </p>
         </div>
 
         <div className="glass rounded-lg p-4 border border-blue-500/20 bg-blue-500/5 text-center">
           <p className="text-xs text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-            Outbound
+            Sale
           </p>
           <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-            {stats.outbound}
+            {stats.sale}
           </p>
         </div>
 

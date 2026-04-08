@@ -21,15 +21,19 @@ export function StockMovementForm({
   className,
 }: StockMovementFormProps) {
   const {
-    formData,
-    errors,
+    movementType,
+    setMovementType,
+    quantity,
+    setQuantity,
+    note,
+    setNote,
+    canSubmit,
+    submit,
     isSubmitting,
     product,
     currentQuantity,
     previewQuantity,
-    wouldCauseNegativeStock,
-    updateField,
-    submitMovement,
+    error,
   } = useStockMovement(productId);
 
   if (!product) {
@@ -42,7 +46,7 @@ export function StockMovementForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await submitMovement();
+    const success = await submit();
     if (success && onSuccess) {
       onSuccess();
     }
@@ -68,24 +72,19 @@ export function StockMovementForm({
           Movement Type <span className="text-destructive">*</span>
         </label>
         <select
-          value={formData.type}
+          value={movementType}
           onChange={(e) =>
-            updateField(
-              "type",
-              e.target.value as
-                | "inbound"
-                | "outbound"
-                | "adjustment"
-                | "return",
+            setMovementType(
+              e.target.value as "restock" | "sale" | "adjustment" | "return",
             )
           }
           className="glass-input w-full px-3 py-2 rounded"
           disabled={isSubmitting}
         >
-          <option value="inbound">Inbound (Receive Stock)</option>
-          <option value="outbound">Outbound (Send Stock)</option>
+          <option value="restock">Restock</option>
+          <option value="sale">Sale</option>
           <option value="return">Return (From Customer)</option>
-          <option value="adjustment">Adjustment (Manual)</option>
+          <option value="adjustment">Adjustment</option>
         </select>
       </div>
 
@@ -97,40 +96,11 @@ export function StockMovementForm({
         <input
           type="number"
           min="1"
-          value={formData.quantity}
-          onChange={(e) =>
-            updateField("quantity", parseInt(e.target.value, 10))
-          }
-          className={cn(
-            "glass-input w-full px-3 py-2 rounded",
-            errors.quantity && "border-destructive/50",
-          )}
+          value={quantity}
+          onChange={(e) => setQuantity(Math.max(0, parseInt(e.target.value, 10) || 0))}
+          className="glass-input w-full px-3 py-2 rounded"
           disabled={isSubmitting}
         />
-        {errors.quantity && (
-          <p className="text-xs text-destructive mt-1">{errors.quantity}</p>
-        )}
-      </div>
-
-      {/* Reference */}
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">
-          Reference <span className="text-destructive">*</span>
-        </label>
-        <input
-          type="text"
-          placeholder="PO#, RMA#, etc."
-          value={formData.reference}
-          onChange={(e) => updateField("reference", e.target.value)}
-          className={cn(
-            "glass-input w-full px-3 py-2 rounded",
-            errors.reference && "border-destructive/50",
-          )}
-          disabled={isSubmitting}
-        />
-        {errors.reference && (
-          <p className="text-xs text-destructive mt-1">{errors.reference}</p>
-        )}
       </div>
 
       {/* Notes */}
@@ -140,8 +110,8 @@ export function StockMovementForm({
         </label>
         <textarea
           placeholder="Additional details..."
-          value={formData.notes}
-          onChange={(e) => updateField("notes", e.target.value)}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
           className="glass-input w-full px-3 py-2 rounded resize-none"
           rows={3}
           disabled={isSubmitting}
@@ -176,7 +146,7 @@ export function StockMovementForm({
       </div>
 
       {/* Risk Warnings */}
-      {wouldCauseNegativeStock && (
+      {!canSubmit && quantity > 0 && (movementType === "sale" || movementType === "adjustment") && (
         <div className="bg-red-500/10 border border-red-500/30 rounded p-3">
           <p className="text-sm font-medium text-red-600 dark:text-red-400">
             ⚠️ This movement would exceed available stock
@@ -195,7 +165,7 @@ export function StockMovementForm({
       {/* Submit Button */}
       <button
         type="submit"
-        disabled={isSubmitting || wouldCauseNegativeStock || !!errors.submit}
+        disabled={isSubmitting || !canSubmit}
         className={cn(
           "w-full btn-glass btn-glassPrimary py-2 rounded font-medium transition-all",
           isSubmitting && "opacity-60 cursor-not-allowed",
@@ -204,8 +174,8 @@ export function StockMovementForm({
         {isSubmitting ? "Recording..." : "Record Movement"}
       </button>
 
-      {errors.submit && (
-        <p className="text-xs text-destructive text-center">{errors.submit}</p>
+      {error && (
+        <p className="text-xs text-destructive text-center">{error}</p>
       )}
     </form>
   );

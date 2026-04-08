@@ -4,7 +4,7 @@
  * In production, replace with real database (PostgreSQL, MongoDB, etc.)
  */
 
-import { Product, StockMovement } from "@/types/inventory";
+import { Product, StockMovement, StockMovementType } from "@/types/inventory";
 
 /**
  * In-memory stores
@@ -23,7 +23,7 @@ const db = {
  */
 export function initializeDatabase() {
   if (db.products.size === 0) {
-    const now = new Date();
+    const now = new Date().toISOString();
 
     db.products.set("prod_1", {
       id: "prod_1",
@@ -31,11 +31,12 @@ export function initializeDatabase() {
       name: "Laptop Computer",
       description: "High-performance laptop",
       category: "electronics",
-      price: 1299.99,
+      price: 129999,
+      costPrice: 99999,
       quantity: 15,
       minStockLevel: 5,
       maxStockLevel: 30,
-      unit: "piece",
+      unit: "pcs",
       supplier: "Tech Supplier Inc",
       createdAt: now,
       updatedAt: now,
@@ -48,11 +49,12 @@ export function initializeDatabase() {
       name: "Office Chair",
       description: "Ergonomic office chair",
       category: "furniture",
-      price: 299.99,
+      price: 29999,
+      costPrice: 19999,
       quantity: 3,
       minStockLevel: 10,
       maxStockLevel: 50,
-      unit: "piece",
+      unit: "pcs",
       supplier: "Furniture Ltd",
       createdAt: now,
       updatedAt: now,
@@ -83,7 +85,7 @@ export function getProductById(id: string): Product | undefined {
 export function createProduct(
   data: Omit<Product, "id" | "createdAt" | "updatedAt">,
 ): Product {
-  const now = new Date();
+  const now = new Date().toISOString();
   const product: Product = {
     ...data,
     id: `prod_${db.counters.productId++}`,
@@ -109,7 +111,7 @@ export function updateProduct(
     ...data,
     id: product.id,
     createdAt: product.createdAt,
-    updatedAt: new Date(),
+    updatedAt: new Date().toISOString(),
   };
   db.products.set(id, updated);
   return updated;
@@ -131,17 +133,33 @@ export function deleteProduct(id: string): boolean {
 /**
  * Get all movements
  */
-export function getMovements(): StockMovement[] {
-  return Array.from(db.movements.values());
-}
-
 /**
- * Get movements by product ID
+ * Get all movements with optional filtering
+ * Supports: { productId, type, limit }
+ * Sorted by performedAt descending
  */
-export function getMovementsByProductId(productId: string): StockMovement[] {
-  return Array.from(db.movements.values()).filter(
-    (m) => m.productId === productId,
+export function getMovements(filters?: {
+  productId?: string;
+  type?: StockMovementType;
+  limit?: number;
+}): StockMovement[] {
+  let result = Array.from(db.movements.values());
+  if (filters) {
+    if (filters.productId) {
+      result = result.filter((m) => m.productId === filters.productId);
+    }
+    if (filters.type) {
+      result = result.filter((m) => m.type === filters.type);
+    }
+  }
+  result.sort(
+    (a, b) =>
+      new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime(),
   );
+  if (filters?.limit) {
+    result = result.slice(0, filters.limit);
+  }
+  return result;
 }
 
 /**
@@ -149,44 +167,38 @@ export function getMovementsByProductId(productId: string): StockMovement[] {
  */
 export function createMovement(data: {
   productId: string;
-  type: "inbound" | "outbound" | "adjustment" | "return";
+  type: StockMovementType;
   quantity: number;
-  reference: string;
-  notes: string;
-  userId: string;
+  note?: string;
 }): StockMovement | null {
   const product = db.products.get(data.productId);
   if (!product) return null;
 
-  // Calculate quantity change
-  let quantityChange = 0;
+  let newQuantity = product.quantity;
+  const previousQuantity = product.quantity;
   switch (data.type) {
-    case "inbound":
+    case "restock":
     case "return":
-      quantityChange = data.quantity;
+      newQuantity = previousQuantity + data.quantity;
       break;
-    case "outbound":
-      quantityChange = -data.quantity;
-      break;
+    case "sale":
     case "adjustment":
-      quantityChange = data.quantity;
+      newQuantity = previousQuantity - data.quantity;
       break;
   }
-
-  const previousQuantity = product.quantity;
-  const newQuantity = previousQuantity + quantityChange;
-
   // Never allow negative stock
   if (newQuantity < 0) {
     return null;
   }
-
   // Atomic update
-  product.quantity = newQuantity;
-  product.updatedAt = new Date();
-  db.products.set(product.id, product);
+  const now = new Date().toISOString();
+  const updatedProduct: Product = {
+    ...product,
+    quantity: newQuantity,
+    updatedAt: now,
+  };
+  db.products.set(product.id, updatedProduct);
 
-  const now = new Date();
   const movement: StockMovement = {
     id: `mov_${db.counters.movementId++}`,
     productId: data.productId,
@@ -194,13 +206,9 @@ export function createMovement(data: {
     quantity: data.quantity,
     previousQuantity,
     newQuantity,
-    reference: data.reference,
-    notes: data.notes,
-    userId: data.userId,
-    createdAt: now,
-    updatedAt: now,
+    note: data.note,
+    performedAt: now,
   };
-
   db.movements.set(movement.id, movement);
   return movement;
 }

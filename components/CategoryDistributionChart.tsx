@@ -23,9 +23,11 @@ interface CategoryDistributionChartProps {
  */
 const CATEGORY_COLORS: Record<ProductCategory, string> = {
   electronics: "#3b82f6",
-  furniture: "#8b5cf6",
   clothing: "#ec4899",
   food: "#f59e0b",
+  furniture: "#8b5cf6",
+  tools: "#14b8a6",
+  stationery: "#6366f1",
   other: "#6b7280",
 };
 
@@ -43,9 +45,11 @@ export function CategoryDistributionChart({
   const chartData = useMemo(() => {
     const distribution: Record<ProductCategory, number> = {
       electronics: 0,
-      furniture: 0,
       clothing: 0,
       food: 0,
+      furniture: 0,
+      tools: 0,
+      stationery: 0,
       other: 0,
     };
 

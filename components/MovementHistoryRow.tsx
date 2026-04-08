@@ -15,15 +15,15 @@ interface MovementHistoryRowProps {
  */
 function getMovementTypeInfo(type: StockMovement["type"]) {
   const types = {
-    inbound: {
+    restock: {
       icon: "📥",
-      label: "Inbound",
+      label: "Restock",
       color: "text-green-600 dark:text-green-400",
       bg: "bg-green-500/10",
     },
-    outbound: {
+    sale: {
       icon: "📤",
-      label: "Outbound",
+      label: "Sale",
       color: "text-blue-600 dark:text-blue-400",
       bg: "bg-blue-500/10",
     },
@@ -55,7 +55,7 @@ export function MovementHistoryRow({
   className,
 }: MovementHistoryRowProps) {
   const typeInfo = getMovementTypeInfo(movement.type);
-  const date = new Date(movement.createdAt);
+  const date = new Date(movement.performedAt);
   const isPositive = movement.newQuantity >= movement.previousQuantity;
 
   return (
@@ -90,9 +90,7 @@ export function MovementHistoryRow({
             Product
           </p>
           <p className="font-medium text-foreground truncate">{productName}</p>
-          <p className="text-xs text-muted-foreground">
-            Ref: {movement.reference}
-          </p>
+          <p className="text-xs text-muted-foreground">ID: {movement.id}</p>
         </div>
 
         {/* Quantity Change */}
@@ -124,7 +122,10 @@ export function MovementHistoryRow({
               )}
             >
               {isPositive ? "+" : ""}
-              {movement.quantity * (movement.type === "outbound" ? -1 : 1)}
+              {movement.quantity *
+                (movement.type === "sale" || movement.type === "adjustment"
+                  ? -1
+                  : 1)}
             </span>
           </div>
         </div>
@@ -146,17 +147,19 @@ export function MovementHistoryRow({
               minute: "2-digit",
             })}
           </p>
-          <p className="text-xs text-muted-foreground">By: {movement.userId}</p>
+          <p className="text-xs text-muted-foreground">
+            {movement.type.toUpperCase()}
+          </p>
         </div>
 
         {/* Notes */}
-        {movement.notes && (
+        {movement.note && (
           <div className="md:col-span-3">
             <p className="text-xs text-muted-foreground uppercase tracking-wider">
               Notes
             </p>
             <p className="text-sm text-foreground line-clamp-2">
-              {movement.notes}
+              {movement.note}
             </p>
           </div>
         )}

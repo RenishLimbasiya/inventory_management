@@ -3,7 +3,8 @@
 import { useMemo } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store";
-import { InventoryStats } from "@/types/inventory";
+import { InventoryStats, ProductCategory } from "@/types/inventory";
+import { useWarehouse } from "@/context/WarehouseContext";
 
 /**
  * Hook: useInventoryStats
@@ -13,37 +14,37 @@ import { InventoryStats } from "@/types/inventory";
  */
 export function useInventoryStats(): InventoryStats {
   const products = useSelector((state: RootState) => state.products.products);
-  const movements = useSelector(
-    (state: RootState) => state.movements.movements,
-  );
+  const { lowStockThresholdOverride } = useWarehouse();
 
   return useMemo(() => {
+    const byCategory: Record<ProductCategory, number> = {
+      electronics: 0,
+      clothing: 0,
+      food: 0,
+      furniture: 0,
+      tools: 0,
+      stationery: 0,
+      other: 0,
+    };
+
+    for (const product of products) {
+      byCategory[product.category] += 1;
+    }
+
     const stats: InventoryStats = {
       totalProducts: products.length,
-      totalItems: products.reduce((sum, p) => sum + p.quantity, 0),
-      lowStockItems: products.filter(
-        (p) => p.quantity > 0 && p.quantity <= p.minStockLevel,
-      ).length,
-      outOfStockItems: products.filter((p) => p.quantity === 0).length,
       totalValue: products.reduce((sum, p) => sum + p.price * p.quantity, 0),
-      averageUnitPrice:
-        products.length > 0
-          ? products.reduce((sum, p) => sum + p.price, 0) / products.length
-          : 0,
-      categoryDistribution: products.reduce(
-        (acc: Record<string, number>, p) => {
-          acc[p.category] = (acc[p.category] || 0) + p.quantity;
-          return acc;
-        },
-        {} as Record<string, number>,
-      ),
-      inboundMovements: movements.filter(
-        (m) => m.type === "inbound" || m.type === "return",
-      ).length,
-      outboundMovements: movements.filter((m) => m.type === "outbound").length,
-      lastUpdated: new Date(),
+      lowStockCount: products.filter((p) => {
+        const threshold = lowStockThresholdOverride ?? p.minStockLevel;
+        return p.quantity <= threshold;
+      }).length,
+      outOfStockCount: products.filter((p) => p.quantity === 0).length,
+      byCategory,
+      topByValue: [...products]
+        .sort((a, b) => b.price * b.quantity - a.price * a.quantity)
+        .slice(0, 5),
     };
 
     return stats;
-  }, [products, movements]);
+  }, [products, lowStockThresholdOverride]);
 }

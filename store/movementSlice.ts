@@ -4,7 +4,8 @@ import {
   PayloadAction,
   type SerializedError,
 } from "@reduxjs/toolkit";
-import { StockMovement } from "@/types/inventory";
+import { StockMovement, StockMovementType } from "@/types/inventory";
+import { updateProduct } from "./productSlice";
 import { deleteProduct } from "./productSlice";
 
 /**
@@ -25,11 +26,9 @@ interface MovementResponse {
  */
 export interface RecordMovementPayload {
   productId: string;
-  type: "inbound" | "outbound" | "adjustment" | "return";
+  type: StockMovementType;
   quantity: number;
-  reference: string;
-  notes: string;
-  userId: string;
+  note?: string;
 }
 
 /**
@@ -86,7 +85,9 @@ export const recordMovement = createAsyncThunk<
   {
     rejectValue: { message: string };
   }
->("movements/recordMovement", async (movementData, { rejectWithValue }) => {
+>(
+  "movements/recordMovement",
+  async (movementData, { rejectWithValue, dispatch }) => {
   try {
     const response = await fetch("/api/movements", {
       method: "POST",
@@ -99,6 +100,18 @@ export const recordMovement = createAsyncThunk<
     }
 
     const json: MovementResponse = await response.json();
+
+    // Keep product quantity/updatedAt in sync without full refetch.
+    const productRes = await fetch(`/api/products/${movementData.productId}`, {
+      cache: "no-store",
+    });
+    if (productRes.ok) {
+      const productJson = await productRes.json();
+      if (productJson?.data) {
+        dispatch(updateProduct(productJson.data));
+      }
+    }
+
     return json.data;
   } catch (error) {
     return rejectWithValue({

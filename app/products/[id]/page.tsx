@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAppDispatch } from "@/hooks/useRedux";
-import { updateProduct, deleteProduct } from "@/store/productSlice";
+import { editProduct, deleteProduct } from "@/store/productSlice";
 import { Product, ProductCategory, StockMovement } from "@/types/inventory";
 import { useWarehouse } from "@/context/WarehouseContext";
 import { cn } from "@/lib/utils";
@@ -49,6 +49,7 @@ import {
   TrendingUp,
   AlertTriangle,
 } from "lucide-react";
+import { StockMovementForm } from "@/components/StockMovementForm";
 
 const CATEGORIES: ProductCategory[] = [
   "electronics",
@@ -112,23 +113,39 @@ export default function ProductDetailPage() {
     supplier: "",
   });
 
+  const reloadProductData = async (targetProductId: string) => {
+    const [productRes, movementsRes] = await Promise.all([
+      fetch(`/api/products/${targetProductId}`, { cache: "no-store" }),
+      fetch(`/api/movements?productId=${targetProductId}&limit=20`, {
+        cache: "no-store",
+      }),
+    ]);
+
+    if (!productRes.ok) {
+      throw new Error("Product not found");
+    }
+
+    const productData = await productRes.json();
+    setProduct(productData.data);
+
+    if (movementsRes.ok) {
+      const movementsData = await movementsRes.json();
+      setMovements(movementsData.data || []);
+    }
+  };
+
   useEffect(() => {
     async function fetchProductData() {
       setLoading(true);
       setError(null);
 
       try {
-        const [productRes, movementsRes] = await Promise.all([
-          fetch(`/api/products/${productId}`),
-          fetch(`/api/movements?productId=${productId}&limit=20`),
-        ]);
-
-        if (!productRes.ok) {
-          throw new Error("Product not found");
-        }
-
-        const productData = await productRes.json();
-        const product = productData.data;
+        await reloadProductData(productId);
+        const latestProductRes = await fetch(`/api/products/${productId}`, {
+          cache: "no-store",
+        });
+        const latestProductData = await latestProductRes.json();
+        const product = latestProductData.data;
 
         setProduct(product);
 
@@ -146,10 +163,6 @@ export default function ProductDetailPage() {
           supplier: product.supplier || "",
         });
 
-        if (movementsRes.ok) {
-          const movementsData = await movementsRes.json();
-          setMovements(movementsData.data || []);
-        }
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to fetch product",
@@ -163,6 +176,15 @@ export default function ProductDetailPage() {
       fetchProductData();
     }
   }, [productId]);
+
+  const handleMovementSuccess = async () => {
+    if (!product) return;
+    try {
+      await reloadProductData(product.id);
+    } catch {
+      setError("Movement saved, but failed to refresh product details");
+    }
+  };
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -223,7 +245,7 @@ export default function ProductDetailPage() {
       };
 
       const result = await dispatch(
-        updateProduct({ id: product.id, ...updateData }),
+        editProduct({ id: product.id, data: updateData }),
       ).unwrap();
 
       setProduct(result);
@@ -250,10 +272,11 @@ export default function ProductDetailPage() {
   };
 
   const getStockStatus = (quantity: number, minStockLevel: number) => {
-    if (quantity === 0) return { status: "Out of Stock", color: "destructive" };
+    if (quantity === 0)
+      return { status: "Out of Stock", color: "destructive" as const };
     if (quantity <= minStockLevel)
-      return { status: "Low Stock", color: "warning" };
-    return { status: "In Stock", color: "default" };
+      return { status: "Low Stock", color: "secondary" as const };
+    return { status: "In Stock", color: "default" as const };
   };
 
   if (loading) {
@@ -344,9 +367,9 @@ export default function ProductDetailPage() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete Product</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to delete "{product.name}"? This action
-                  cannot be undone and will also delete all associated stock
-                  movements.
+                  Are you sure you want to delete &quot;{product.name}&quot;? This
+                  action cannot be undone and will also delete all associated
+                  stock movements.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -669,6 +692,22 @@ export default function ProductDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Record Movement */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Record Stock Movement</CardTitle>
+              <CardDescription>
+                Apply restock, sale, adjustment, or return for this product.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <StockMovementForm
+                productId={product.id}
+                onSuccess={handleMovementSuccess}
+              />
+            </CardContent>
+          </Card>
+
           {/* Stock Movements */}
           <Card>
             <CardHeader>
@@ -692,9 +731,9 @@ export default function ProductDetailPage() {
                         <div
                           className={cn(
                             "w-2 h-2 rounded-full",
-                            movement.type === "inbound"
+                            movement.type === "restock"
                               ? "bg-green-500"
-                              : movement.type === "outbound"
+                              : movement.type === "sale"
                                 ? "bg-red-500"
                                 : movement.type === "adjustment"
                                   ? "bg-yellow-500"
@@ -706,7 +745,7 @@ export default function ProductDetailPage() {
                             {movement.type}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {new Date(movement.createdAt).toLocaleDateString()}
+                            {new Date(movement.performedAt).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
@@ -714,22 +753,22 @@ export default function ProductDetailPage() {
                         <p
                           className={cn(
                             "font-semibold",
-                            movement.type === "inbound"
+                            movement.type === "restock"
                               ? "text-green-600"
-                              : movement.type === "outbound"
+                              : movement.type === "sale"
                                 ? "text-red-600"
                                 : "text-foreground",
                           )}
                         >
-                          {movement.type === "inbound"
+                          {movement.type === "restock"
                             ? "+"
-                            : movement.type === "outbound"
+                            : movement.type === "sale" || movement.type === "adjustment"
                               ? "-"
                               : ""}
                           {movement.quantity} {product.unit}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {movement.reason || "No reason provided"}
+                          {movement.note || "No note provided"}
                         </p>
                       </div>
                     </div>
@@ -771,7 +810,7 @@ export default function ProductDetailPage() {
                     <span className="text-sm text-muted-foreground">
                       Current Stock
                     </span>
-                    <Badge variant={stockStatus.color as any}>
+                    <Badge variant={stockStatus.color}>
                       {stockStatus.status}
                     </Badge>
                   </div>

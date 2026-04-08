@@ -16,6 +16,7 @@ export interface ProductFormData {
   description: string;
   category: ProductCategory;
   price: number;
+  costPrice: number;
   quantity: number;
   minStockLevel: number;
   maxStockLevel: number;
@@ -46,6 +47,7 @@ export function useProductForm(initialProduct?: Product) {
     description: initialProduct?.description || "",
     category: initialProduct?.category || "other",
     price: initialProduct?.price || 0,
+    costPrice: initialProduct?.costPrice || 0,
     quantity: initialProduct?.quantity || 0,
     minStockLevel: initialProduct?.minStockLevel || 0,
     maxStockLevel: initialProduct?.maxStockLevel || 0,
@@ -73,6 +75,9 @@ export function useProductForm(initialProduct?: Product) {
 
     if (formData.price <= 0) {
       newErrors.price = "Price must be greater than 0";
+    }
+    if (formData.costPrice <= 0) {
+      newErrors.costPrice = "Cost price must be greater than 0";
     }
 
     if (formData.quantity < 0) {
@@ -152,6 +157,7 @@ export function useProductForm(initialProduct?: Product) {
       description: initialProduct?.description || "",
       category: initialProduct?.category || "other",
       price: initialProduct?.price || 0,
+      costPrice: initialProduct?.costPrice || 0,
       quantity: initialProduct?.quantity || 0,
       minStockLevel: initialProduct?.minStockLevel || 0,
       maxStockLevel: initialProduct?.maxStockLevel || 0,

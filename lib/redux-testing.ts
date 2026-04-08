@@ -6,15 +6,14 @@
  */
 
 import { configureStore } from "@reduxjs/toolkit";
-import productReducer, { deleteProduct } from "@/store/productSlice";
-import movementReducer, { recordMovement } from "@/store/movementSlice";
-import type { Product, StockMovement } from "@/types/inventory";
+import productReducer from "@/store/productSlice";
+import movementReducer from "@/store/movementSlice";
 
 /**
  * Verify deleteProduct removes related movements
  * This tests the critical cross-slice dependency
  */
-export async function testDeleteProductCascade() {
+export function testDeleteProductCascade() {
   // Create test store
   const store = configureStore({
     reducer: {
@@ -24,40 +23,9 @@ export async function testDeleteProductCascade() {
   });
 
   // Create test product
-  const testProduct: Product = {
-    id: "test-product-1",
-    sku: "TEST-001",
-    name: "Test Product",
-    description: "For testing",
-    category: "other",
-    price: 99.99,
-    quantity: 100,
-    minStockLevel: 10,
-    maxStockLevel: 500,
-    unit: "pieces",
-    supplier: "Test Supplier",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  const testMovement: StockMovement = {
-    id: "test-movement-1",
-    productId: "test-product-1",
-    type: "inbound",
-    quantity: 50,
-    previousQuantity: 50,
-    newQuantity: 100,
-    reference: "TEST-REF-001",
-    notes: "Test movement",
-    userId: "system",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
   try {
     // 1. Initial state should be empty
-    let state = store.getState();
+    const state = store.getState();
     if (
       state.products.products.length !== 0 ||
       state.movements.movements.length !== 0

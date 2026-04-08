@@ -24,6 +24,7 @@ interface FormData {
   description: string;
   category: ProductCategory;
   price: string;
+  costPrice: string;
   quantity: string;
   minStockLevel: string;
   maxStockLevel: string;
@@ -53,6 +54,7 @@ export default function AddProductPage() {
     description: "",
     category: "other",
     price: "",
+    costPrice: "",
     quantity: "",
     minStockLevel: "",
     maxStockLevel: "",
@@ -69,8 +71,11 @@ export default function AddProductPage() {
     if (!formData.name.trim()) {
       newErrors.name = "Product name is required";
     }
-    if (!formData.price || parseFloat(formData.price) <= 0) {
-      newErrors.price = "Price must be greater than 0";
+    if (!formData.price || parseInt(formData.price, 10) <= 0) {
+      newErrors.price = "Price must be a positive integer (cents)";
+    }
+    if (!formData.costPrice || parseInt(formData.costPrice, 10) <= 0) {
+      newErrors.costPrice = "Cost price must be a positive integer (cents)";
     }
     if (!formData.quantity || parseInt(formData.quantity) < 0) {
       newErrors.quantity = "Quantity must be 0 or greater";
@@ -109,7 +114,7 @@ export default function AddProductPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -124,7 +129,8 @@ export default function AddProductPage() {
         name: formData.name,
         description: formData.description,
         category: formData.category,
-        price: parseFloat(formData.price),
+        price: parseInt(formData.price, 10),
+        costPrice: parseInt(formData.costPrice, 10),
         quantity: parseInt(formData.quantity),
         minStockLevel: parseInt(formData.minStockLevel),
         maxStockLevel: parseInt(formData.maxStockLevel),
@@ -321,20 +327,19 @@ export default function AddProductPage() {
             </div>
           </div>
 
-          {/* Price and Quantity Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Pricing and Quantity Row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label htmlFor="price" className="block text-sm font-medium mb-2">
-                Price (USD) *
+                Price (cents) *
               </label>
               <input
                 id="price"
                 name="price"
                 type="number"
-                step="0.01"
                 value={formData.price}
                 onChange={handleChange}
-                placeholder="0.00"
+                placeholder="129999"
                 className={cn(
                   "w-full px-4 py-2 rounded-lg",
                   "bg-white/5 border border-white/10",
@@ -345,6 +350,33 @@ export default function AddProductPage() {
               />
               {errors.price && (
                 <p className="text-xs text-red-500 mt-1">{errors.price}</p>
+              )}
+            </div>
+
+            <div>
+              <label
+                htmlFor="costPrice"
+                className="block text-sm font-medium mb-2"
+              >
+                Cost Price (cents) *
+              </label>
+              <input
+                id="costPrice"
+                name="costPrice"
+                type="number"
+                value={formData.costPrice}
+                onChange={handleChange}
+                placeholder="99999"
+                className={cn(
+                  "w-full px-4 py-2 rounded-lg",
+                  "bg-white/5 border border-white/10",
+                  "text-foreground placeholder:text-muted-foreground",
+                  "focus:outline-none focus:ring-2 focus:ring-primary",
+                  errors.costPrice && "border-red-500/50 focus:ring-red-500",
+                )}
+              />
+              {errors.costPrice && (
+                <p className="text-xs text-red-500 mt-1">{errors.costPrice}</p>
               )}
             </div>
 

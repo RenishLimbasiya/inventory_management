@@ -1,5 +1,9 @@
 import { Product } from "@/types/inventory";
 import { StockMovementRecordForm } from "@/components/StockMovementRecordForm";
+import { headers } from "next/headers";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /**
  * Movements Add Page (Server Component)
@@ -11,12 +15,12 @@ export default async function RecordMovementPage() {
   let error: string | null = null;
 
   try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/products`,
-      {
-        cache: "no-store",
-      },
-    );
+    const hdrs = await headers();
+    const host = hdrs.get("host");
+    const proto = process.env.NODE_ENV === "development" ? "http" : "https";
+    const baseUrl = host ? `${proto}://${host}` : "http://localhost:3000";
+
+    const res = await fetch(`${baseUrl}/api/products`, { cache: "no-store" });
 
     if (res.ok) {
       const data = await res.json();

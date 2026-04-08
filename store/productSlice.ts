@@ -34,14 +34,11 @@ interface ProductSliceState {
  * Initial filters state
  */
 const initialFilters: InventoryFilters = {
-  searchTerm: "",
-  category: null,
-  minPrice: 0,
-  maxPrice: Infinity,
+  search: "",
+  category: "all",
+  minPrice: null,
+  maxPrice: null,
   lowStockOnly: false,
-  isActive: true,
-  sortBy: "name",
-  sortOrder: "asc",
 };
 
 /**
@@ -60,21 +57,19 @@ const initialState: ProductSliceState = {
  */
 export const fetchProducts = createAsyncThunk<
   Product[],
-  InventoryFilters,
+  InventoryFilters | undefined,
   {
     rejectValue: { message: string };
   }
 >("products/fetchProducts", async (filters, { rejectWithValue }) => {
   try {
+    const activeFilters = filters ?? initialFilters;
     const queryParams = new URLSearchParams();
-    if (filters.searchTerm) queryParams.append("search", filters.searchTerm);
-    if (filters.category) queryParams.append("category", filters.category);
-    queryParams.append("minPrice", filters.minPrice.toString());
-    queryParams.append("maxPrice", filters.maxPrice.toString());
-    queryParams.append("lowStockOnly", filters.lowStockOnly.toString());
-    queryParams.append("isActive", filters.isActive.toString());
-    queryParams.append("sortBy", filters.sortBy);
-    queryParams.append("sortOrder", filters.sortOrder);
+    if (activeFilters.search) queryParams.append("search", activeFilters.search);
+    if (activeFilters.category !== "all") queryParams.append("category", activeFilters.category);
+    if (activeFilters.minPrice !== null) queryParams.append("minPrice", String(activeFilters.minPrice));
+    if (activeFilters.maxPrice !== null) queryParams.append("maxPrice", String(activeFilters.maxPrice));
+    queryParams.append("lowStockOnly", String(activeFilters.lowStockOnly));
 
     const response = await fetch(`/api/products?${queryParams}`);
 

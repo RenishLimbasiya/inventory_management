@@ -32,11 +32,11 @@ const CURRENCY_CONFIG: Record<
 interface WarehouseContextType {
   warehouseName: string;
   currency: CurrencyCode;
-  lowStockThresholdOverride: number;
+  lowStockThresholdOverride: number | null;
   setWarehouseName: (name: string) => void;
   setCurrency: (currency: CurrencyCode) => void;
-  setLowStockThresholdOverride: (threshold: number) => void;
-  formatPrice: (price: number) => string;
+  setLowStockThresholdOverride: (threshold: number | null) => void;
+  formatPrice: (cents: number) => string;
   isLoading: boolean;
 }
 
@@ -52,7 +52,7 @@ const WarehouseContext = createContext<WarehouseContextType | undefined>(
  */
 const DEFAULT_WAREHOUSE_NAME = "Main Warehouse";
 const DEFAULT_CURRENCY: CurrencyCode = "USD";
-const DEFAULT_LOW_STOCK_THRESHOLD = 10;
+const DEFAULT_LOW_STOCK_THRESHOLD: number | null = null;
 
 /**
  * WarehouseProvider Component
@@ -64,7 +64,7 @@ export function WarehouseProvider({ children }: { children: ReactNode }) {
   );
   const [currency, setCurrencyState] = useState<CurrencyCode>(DEFAULT_CURRENCY);
   const [lowStockThresholdOverride, setLowStockThresholdOverrideState] =
-    useState<number>(DEFAULT_LOW_STOCK_THRESHOLD);
+    useState<number | null>(DEFAULT_LOW_STOCK_THRESHOLD);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   /**
@@ -89,7 +89,9 @@ export function WarehouseProvider({ children }: { children: ReactNode }) {
         setCurrencyState(storedCurrency);
       }
 
-      if (storedThreshold) {
+      if (storedThreshold === "null") {
+        setLowStockThresholdOverrideState(null);
+      } else if (storedThreshold) {
         const threshold = parseInt(storedThreshold, 10);
         if (!isNaN(threshold) && threshold >= 0) {
           setLowStockThresholdOverrideState(threshold);
@@ -129,7 +131,13 @@ export function WarehouseProvider({ children }: { children: ReactNode }) {
   /**
    * Update low stock threshold and persist to localStorage
    */
-  const handleSetLowStockThresholdOverride = (threshold: number) => {
+  const handleSetLowStockThresholdOverride = (threshold: number | null) => {
+    if (threshold === null) {
+      setLowStockThresholdOverrideState(null);
+      localStorage.setItem("low_stock_threshold", "null");
+      return;
+    }
+
     const validThreshold = Math.max(0, Math.floor(threshold));
     setLowStockThresholdOverrideState(validThreshold);
     localStorage.setItem("low_stock_threshold", validThreshold.toString());
@@ -139,7 +147,7 @@ export function WarehouseProvider({ children }: { children: ReactNode }) {
    * Format price according to current currency
    * Uses Intl.NumberFormat for proper localization
    */
-  const formatPrice = (price: number): string => {
+  const formatPrice = (cents: number): string => {
     try {
       const config = CURRENCY_CONFIG[currency];
       const formatter = new Intl.NumberFormat(config.locale, {
@@ -148,10 +156,10 @@ export function WarehouseProvider({ children }: { children: ReactNode }) {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       });
-      return formatter.format(price);
+      return formatter.format(cents / 100);
     } catch (error) {
       console.warn("Failed to format price:", error);
-      return `${CURRENCY_CONFIG[currency].symbol}${price.toFixed(2)}`;
+      return `${CURRENCY_CONFIG[currency].symbol}${(cents / 100).toFixed(2)}`;
     }
   };
 

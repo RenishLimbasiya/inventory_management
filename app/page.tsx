@@ -5,6 +5,10 @@ import { TopValueChart } from "@/components/TopValueChart";
 import { LowStockAlert } from "@/components/LowStockAlert";
 import { MovementHistoryRow } from "@/components/MovementHistoryRow";
 import { cn } from "@/lib/utils";
+import { headers } from "next/headers";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /**
  * Dashboard Page (Server Component)
@@ -18,26 +22,16 @@ export default async function DashboardPage() {
   let error: string | null = null;
 
   try {
+    const hdrs = await headers();
+    const host = hdrs.get("host");
+    const proto = process.env.NODE_ENV === "development" ? "http" : "https";
+    const baseUrl = host ? `${proto}://${host}` : "http://localhost:3000";
+
     // Fetch products and stats in parallel
     const [productsRes, statsRes, movementsRes] = await Promise.all([
-      fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/products`,
-        {
-          cache: "no-store",
-        },
-      ),
-      fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/movements/stats`,
-        {
-          cache: "no-store",
-        },
-      ),
-      fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/movements?limit=10`,
-        {
-          cache: "no-store",
-        },
-      ),
+      fetch(`${baseUrl}/api/products`, { cache: "no-store" }),
+      fetch(`${baseUrl}/api/movements/stats`, { cache: "no-store" }),
+      fetch(`${baseUrl}/api/movements?limit=10`, { cache: "no-store" }),
     ]);
 
     if (productsRes.ok) {
@@ -55,7 +49,7 @@ export default async function DashboardPage() {
       movements = (data.data || [])
         .sort(
           (a: StockMovement, b: StockMovement) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+            new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime(),
         )
         .slice(0, 10);
     }
@@ -67,24 +61,26 @@ export default async function DashboardPage() {
   // Calculate stats from products if API stats unavailable
   const displayStats = stats || {
     totalProducts: products.length,
-    totalItems: products.reduce((sum, p) => sum + p.quantity, 0),
-    lowStockItems: products.filter(
+    totalValue: products.reduce((sum, p) => sum + p.price * p.quantity, 0),
+    lowStockCount: products.filter(
       (p) => p.quantity > 0 && p.quantity <= p.minStockLevel,
     ).length,
-    outOfStockItems: products.filter((p) => p.quantity === 0).length,
-    totalValue: products.reduce((sum, p) => sum + p.price * p.quantity, 0),
-    averageUnitPrice:
-      products.length > 0
-        ? products.reduce((sum, p) => sum + p.price, 0) / products.length
-        : 0,
-    categoryDistribution: {},
-    inboundMovements: movements.filter((m) => m.type === "inbound").length,
-    outboundMovements: movements.filter((m) => m.type === "outbound").length,
-    lastUpdated: new Date().toISOString(),
+    outOfStockCount: products.filter((p) => p.quantity === 0).length,
+    byCategory: {
+      electronics: 0,
+      clothing: 0,
+      food: 0,
+      furniture: 0,
+      tools: 0,
+      stationery: 0,
+      other: 0,
+    },
+    topByValue: [...products]
+      .sort((a, b) => b.price * b.quantity - a.price * a.quantity)
+      .slice(0, 5),
   };
 
-  const lowStockCount =
-    displayStats.outOfStockItems + displayStats.lowStockItems;
+  const lowStockCount = displayStats.outOfStockCount + displayStats.lowStockCount;
 
   return (
     <div className="space-y-6">
@@ -108,26 +104,26 @@ export default async function DashboardPage() {
           icon="📦"
           label="Total Products"
           value={displayStats.totalProducts}
-          subtext={`${displayStats.totalItems} total units`}
+          subtext={`${products.reduce((sum, p) => sum + p.quantity, 0)} total units`}
         />
         <StatsCard
           icon="💰"
           label="Total Value"
-          value={`$${displayStats.totalValue.toFixed(2)}`}
-          subtext={`Avg: $${displayStats.averageUnitPrice.toFixed(2)}`}
+          value={`$${(displayStats.totalValue / 100).toFixed(2)}`}
+          subtext="Inventory worth"
         />
         <StatsCard
           icon="⚠️"
           label="Low Stock"
-          value={displayStats.lowStockItems}
-          variant={displayStats.lowStockItems > 0 ? "warning" : "success"}
+          value={displayStats.lowStockCount}
+          variant={displayStats.lowStockCount > 0 ? "warning" : "success"}
           subtext="Below minimum level"
         />
         <StatsCard
           icon="🚨"
           label="Out of Stock"
-          value={displayStats.outOfStockItems}
-          variant={displayStats.outOfStockItems > 0 ? "danger" : "success"}
+          value={displayStats.outOfStockCount}
+          variant={displayStats.outOfStockCount > 0 ? "danger" : "success"}
           subtext="Zero quantity items"
         />
       </div>

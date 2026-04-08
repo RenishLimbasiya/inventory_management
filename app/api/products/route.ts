@@ -7,7 +7,7 @@ import { getProducts, createProduct, initializeDatabase } from "@/lib/db";
  */
 export async function GET(request: NextRequest) {
   try {
-    initializeDatabase();
+    // initializeDatabase();
     const searchParams = request.nextUrl.searchParams;
 
     const searchTerm = searchParams.get("search")?.toLowerCase() || "";
@@ -15,7 +15,9 @@ export async function GET(request: NextRequest) {
     const minPrice = parseFloat(searchParams.get("minPrice") || "0") || 0;
     const maxPrice =
       parseFloat(searchParams.get("maxPrice") || "Infinity") || Infinity;
-    const lowStockOnly = searchParams.get("lowStockOnly") === "true";
+    const lowStockOnly =
+      searchParams.get("lowStockOnly") === "true" ||
+      searchParams.get("lowStock") === "true";
     const isActive = searchParams.get("isActive") !== "false";
     const sortBy = (searchParams.get("sortBy") || "name") as
       | "name"
@@ -92,7 +94,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    initializeDatabase();
+    // initializeDatabase();
     const body = await request.json();
 
     // Validate required fields
@@ -110,9 +112,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (typeof body.price !== "number" || body.price <= 0) {
+    if (!body.name || typeof body.name !== "string" || body.name.trim().length < 2) {
       return NextResponse.json(
-        { success: false, error: "Price must be a number greater than 0" },
+        { success: false, error: "Name must be at least 2 characters long" },
+        { status: 400 },
+      );
+    }
+
+    if (
+      typeof body.price !== "number" ||
+      body.price <= 0 ||
+      !Number.isInteger(body.price)
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Price must be a positive integer in cents" },
+        { status: 400 },
+      );
+    }
+
+    if (
+      typeof body.costPrice !== "number" ||
+      body.costPrice <= 0 ||
+      !Number.isInteger(body.costPrice)
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Cost price must be a positive integer in cents" },
         { status: 400 },
       );
     }
@@ -149,6 +173,7 @@ export async function POST(request: NextRequest) {
       description: body.description || "",
       category: body.category || "other",
       price: body.price,
+      costPrice: body.costPrice,
       quantity: body.quantity,
       minStockLevel: body.minStockLevel,
       maxStockLevel: body.maxStockLevel || body.quantity * 2,
